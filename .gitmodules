@@ -4,4 +4,3 @@
 [submodule "common/uavcan_dsdl"]
 	path = common/uavcan_dsdl
 	url = https://github.com/UofA-SPEAR/uavcan_dsdl.git
-
