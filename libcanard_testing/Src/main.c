@@ -50,6 +50,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
+UART_HandleTypeDef huart1;
 
 static uint8_t m_transfer_id;
 
@@ -57,6 +58,8 @@ static uint8_t m_transfer_id;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
+
+static void UART_Init(void);
 
 
 /** @brief Implementation of a usleep function to avoid errors
@@ -148,7 +151,7 @@ int main(void)
 
   while (1)
   {
-	  for (uint16_t i = 0; i < 2; i++) {
+	  for (uint16_t i = 0; i < 128; i++) {
 		  status.vendor_specific_status_code = i;
 
 
@@ -264,6 +267,42 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+}
+
+void UART_Init(void) {
+	// Initialize clocks
+	__HAL_RCC_USART1_CLK_ENABLE();
+
+	// Configure pins for UART
+	// PA9 -> TX
+	// PA10 -> RX
+
+	GPIO_InitTypeDef GPIO_InitStruct;
+
+	// Configure Pin 9
+	GPIO_InitStruct.Pin = GPIO_PIN_9;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	// Configure Pin 10
+	GPIO_InitStruct.Pin = GPIO_PIN_10;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	// Initialize UART interface
+	UART_InitTypeDef UART_InitStruct;
+	UART_InitStruct.Mode = UART_MODE_TX_RX;
+	UART_InitStruct.OverSampling = UART_OVERSAMPLING_16;
+	UART_InitStruct.HwFlowCtl = UART_HWCONTROL_NONE;
+	UART_InitStruct.BaudRate = 115200;
+	UART_InitStruct.Parity = UART_PARITY_NONE;
+	UART_InitStruct.StopBits = UART_STOPBITS_1;
+	UART_InitStruct.WordLength = UART_WORDLENGTH_8B;
+	HAL_UART_Init(&huart1, &UART_InitStruct);
 
 }
 
