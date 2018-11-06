@@ -392,7 +392,6 @@ void TIM2_IRQHandler(void) {
 		  &encoded_buf,
 		  len);
 
-	HAL_UART_Transmit(&huart1, "\n\r", 2, 100);
 
 	__enable_irq();
 }
