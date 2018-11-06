@@ -48,6 +48,11 @@
 // Message type includes
 #include "uavcan/protocol/NodeStatus.h"
 
+#include "spear/arm/JointCommand.h"
+#include "spear/arm/JointStatus.h"
+#include "spear/drive/DriveCommand.h"
+#include "spear/drive/DriveStatus.h"
+
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 UART_HandleTypeDef huart1;
@@ -116,6 +121,35 @@ void on_reception(CanardInstance* ins,
 		length = sprintf((char*)tx_buf, "    Mode: %d\n\r", msg.mode);
 		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
 
+	} else if (data_type_id == SPEAR_ARM_JOINTCOMMAND_ID) {
+		spear_arm_JointCommand msg;
+
+		spear_arm_JointCommand_decode(transfer, transfer->payload_len,
+				&msg, NULL);
+
+		length = sprintf((char*)tx_buf, "JointCommand Message ->\n\r");
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+		length = sprintf((char*)tx_buf, "    Joint: %d\n\r", msg.joint);
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+		length = sprintf((char*)tx_buf, "    Angle: %d\n\r", msg.angle);
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+	} else if (data_type_id == SPEAR_DRIVE_DRIVECOMMAND_ID) {
+		spear_drive_DriveCommand msg;
+
+		spear_drive_DriveCommand_decode(transfer, transfer->payload_len,
+				&msg, NULL);
+
+		length = sprintf((char*)tx_buf, "DriveCommand Message ->\n\r");
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+		// Need to change DSDL
+		length = sprintf((char*)tx_buf, "    Wheel: %d\n\r", msg.wheel);
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+		length = sprintf((char*)tx_buf, "    Speed: %d\n\r", msg.speed);
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
 	}
 }
 
