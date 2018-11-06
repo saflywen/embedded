@@ -199,6 +199,7 @@ int main(void)
 
 	  tx_once();
 	  rx_once();
+	   volatile uint8_t thingie = TIM2->CNT;
 
   }
 }
@@ -301,9 +302,14 @@ static void MX_GPIO_Init(void)
 }
 
 void TIM_Init(void) {
-	HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
+	__HAL_RCC_TIM2_CLK_ENABLE();
+
+	HAL_NVIC_SetPriority(TIM2_IRQn, 0, 1);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
+
+	TIM_MasterConfigTypeDef master;
+	TIM_ClockConfigTypeDef clock;
 
 	htim2.Instance = TIM2;
 	htim2.Init.Prescaler = 8000;
@@ -311,8 +317,15 @@ void TIM_Init(void) {
 	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	htim2.Init.Period = 1000;
-
 	HAL_TIM_Base_Init(&htim2);
+
+	clock.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	HAL_TIM_ConfigClockSource(&htim2, &clock);
+
+	master.MasterOutputTrigger = TIM_TRGO_RESET;
+	master.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+
+	HAL_TIMEx_MasterConfigSynchronization(&htim2, &master);
 
 	HAL_TIM_Base_Start_IT(&htim2);
 
@@ -359,6 +372,8 @@ void UART_Init(void) {
 void TIM2_IRQHandler(void) {
 	__disable_irq();
 
+	__HAL_TIM_CLEAR_IT(&htim2, TIM_FLAG_UPDATE);
+
 	static uavcan_protocol_NodeStatus status = {
 			.uptime_sec = 0,
 			.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK,
@@ -376,6 +391,8 @@ void TIM2_IRQHandler(void) {
 		  0,
 		  &encoded_buf,
 		  len);
+
+	HAL_UART_Transmit(&huart1, "\n\r", 2, 100);
 
 	__enable_irq();
 }
