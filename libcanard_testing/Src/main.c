@@ -51,14 +51,17 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 UART_HandleTypeDef huart1;
+TIM_HandleTypeDef htim2;
 
 static uint8_t m_transfer_id;
+uint8_t encoded_buf[10] = {[0 ... 9] = 0};
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
 
+static void TIM_Init(void);
 static void UART_Init(void);
 
 
@@ -77,28 +80,42 @@ bool should_accept(const CanardInstance* ins,
 					CanardTransferType transfer_type,
 					uint8_t source_node_id) {
 
-	if (data_type_id == UAVCAN_PROTOCOL_NODESTATUS_ID) {
-		return true;
-	} else {
-		return false;
-	}
+	return true;
 }
 
 
 void on_reception(CanardInstance* ins,
 					CanardRxTransfer* transfer) {
+	uint8_t tx_buf[64];
 
-	if (transfer->data_type_id == UAVCAN_PROTOCOL_NODESTATUS_ID) {
+	int data_type_id = transfer->data_type_id;
+	int node_id = transfer->source_node_id;
+	int data_len = transfer->payload_len;
+
+	int length = sprintf((char*)tx_buf, "Message received - node ID: %d\n\r", node_id);
+	HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+	length = sprintf((char*)tx_buf, "Data type ID: %d\n\r", data_type_id);
+	HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+	length = sprintf((char*)tx_buf, "Data length: %d\n\r", data_len);
+	HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+	if (data_type_id == UAVCAN_PROTOCOL_NODESTATUS_ID) {
 		uavcan_protocol_NodeStatus msg;
 
 		uavcan_protocol_NodeStatus_decode(transfer, transfer->payload_len,
 				&msg, NULL);
 
-		if (msg.vendor_specific_status_code) {
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-		} else {
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-		}
+		length = sprintf((char*)tx_buf, "NodeStatus Message ->\n\r");
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+		length = sprintf((char*)tx_buf, "    Health: %d\n\r", msg.health);
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
+		length = sprintf((char*)tx_buf, "    Mode: %d\n\r", msg.mode);
+		HAL_UART_Transmit(&huart1, tx_buf, length, 100);
+
 	}
 }
 
@@ -128,8 +145,11 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN_Init();
+  UART_Init();
+  TIM_Init();
 
-  HAL_Delay(500);
+
+  HAL_UART_Transmit(&huart1, (uint8_t*) "Running...\n\r", 12, 1000);
 
   libcanard_init( on_reception,
 				  should_accept,
@@ -139,36 +159,12 @@ int main(void)
 
   setup_hardware_can_filters();
 
-  uavcan_protocol_NodeStatus status;
-
-  status.uptime_sec = 0;
-  status.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK;
-  status.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_OPERATIONAL;
-  status.sub_mode = 0;
-  status.vendor_specific_status_code = 0;
-
-  uint8_t encoded_buf[10] = {[0 ... 9] = 0};
 
   while (1)
   {
-	  for (uint16_t i = 0; i < 128; i++) {
-		  status.vendor_specific_status_code = i;
 
-
-		  uint8_t len = uavcan_protocol_NodeStatus_encode(&status, &encoded_buf);
-
-		  HAL_Delay(500);
-		  canardBroadcast(&m_canard_instance,
-				  	  	  123,
-						  341,
-						  &m_transfer_id,
-						  0,
-						  &encoded_buf,
-						  len);
-
-		  tx_once();
-		  rx_once();
-	  }
+	  tx_once();
+	  rx_once();
 
   }
 }
@@ -270,6 +266,26 @@ static void MX_GPIO_Init(void)
 
 }
 
+void TIM_Init(void) {
+	HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(TIM2_IRQn);
+
+
+	htim2.Instance = TIM2;
+	htim2.Init.Prescaler = 8000;
+	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	htim2.Init.Period = 1000;
+
+	HAL_TIM_Base_Init(&htim2);
+
+	HAL_TIM_Base_Start_IT(&htim2);
+
+}
+
+
+
 void UART_Init(void) {
 	// Initialize clocks
 	__HAL_RCC_USART1_CLK_ENABLE();
@@ -294,16 +310,40 @@ void UART_Init(void) {
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 	// Initialize UART interface
-	UART_InitTypeDef UART_InitStruct;
-	UART_InitStruct.Mode = UART_MODE_TX_RX;
-	UART_InitStruct.OverSampling = UART_OVERSAMPLING_16;
-	UART_InitStruct.HwFlowCtl = UART_HWCONTROL_NONE;
-	UART_InitStruct.BaudRate = 115200;
-	UART_InitStruct.Parity = UART_PARITY_NONE;
-	UART_InitStruct.StopBits = UART_STOPBITS_1;
-	UART_InitStruct.WordLength = UART_WORDLENGTH_8B;
-	HAL_UART_Init(&huart1, &UART_InitStruct);
+	huart1.Instance = USART1;
+	huart1.Init.Mode = UART_MODE_TX_RX;
+	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart1.Init.BaudRate = 115200;
+	huart1.Init.Parity = UART_PARITY_NONE;
+	huart1.Init.StopBits = UART_STOPBITS_1;
+	huart1.Init.WordLength = UART_WORDLENGTH_8B;
+	HAL_UART_Init(&huart1);
 
+}
+
+void TIM2_IRQHandler(void) {
+	__disable_irq();
+
+	static uavcan_protocol_NodeStatus status = {
+			.uptime_sec = 0,
+			.health = UAVCAN_PROTOCOL_NODESTATUS_HEALTH_OK,
+			.mode = UAVCAN_PROTOCOL_NODESTATUS_MODE_OPERATIONAL,
+			.sub_mode = 0,
+			.vendor_specific_status_code = 0
+	};
+
+    uint8_t len = uavcan_protocol_NodeStatus_encode(&status, (void*) encoded_buf);
+
+	canardBroadcast(&m_canard_instance,
+		  123,
+		  UAVCAN_PROTOCOL_NODESTATUS_ID,
+		  &m_transfer_id,
+		  0,
+		  &encoded_buf,
+		  len);
+
+	__enable_irq();
 }
 
 /* USER CODE BEGIN 4 */
