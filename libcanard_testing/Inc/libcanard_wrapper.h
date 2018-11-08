@@ -1,5 +1,6 @@
-/*
- * libcanard_wrapper.h
+/**
+ * @file libcanard_wrapper.h
+ * Wrapper for libcanard UAVCAN library on STM32
  *
  *  Created on: Oct 28, 2018
  *      Author: David Lenfesty
@@ -35,30 +36,32 @@
 #define LIBCANARD_MEM_POOL_SIZE 1024 // Default to 1K
 #endif
 
+#if LIBCANARD_MEM_POOL_SIZE < 1024
+#error "Specified libcanard memory pool is too small!"
+#endif
 
 
 CanardInstance m_canard_instance;
 
 
-/** @brief Function to initialize libcanard stuff.
+/** @brief Initializes a libcanard instance
  *
- * 	@param instance Pointer to uninitialized CanardInstance.
+ * 	@param on_reception Callback function called once a transfer is
+ * 				fully received.
  *
- *  @param on_reception Callback function called when a transfer
- *  				is received.
+ * 	@param should_accept Callback function to decide whether or not
+ * 				to accept a transfer and process it further.
  *
- * 	@param should_accept Callback function to determine if a frame should
- * 					be accepted.
+ * 	@param user_reference Pointer passed around with libcanard instance.
+ * 				Use this for keeping extra data around.
  *
- * 	@param user_reference User pointer held within the CanardInstance.
+ * 	@param node_id Node id you want to use. Can be a value from
+ * 				0 -127.
  *
- *	@param clock_rate Speed in Hz of peripheral clock used for CAN.
+ * 	@param clock_rate Value (in Hz) of system clock.
+ * 	@param bitrate Value (in bps) of bitrate you want to achieve.
  *
- * 	@param bitrate	CAN bitrate to achieve for with CAN timings.
- *
- *
- * 	@retval 0 Failure
- * 	@retval 1 Success
+ * 	@returns Status of initialization functions.
  */
 int16_t libcanard_init(	CanardOnTransferReception on_reception,
 						CanardShouldAcceptTransfer should_accept,
@@ -69,22 +72,24 @@ int16_t libcanard_init(	CanardOnTransferReception on_reception,
 
 
 
-/** @brief Moves one frame from the tx queue to the hardware tx queue.
+/** @brief Function to transmit a single frame from TX queue.
  *
- * @retval 1 Transmitted one frame.
- * @retval 0 No frames to transmit.
+ * 	@retval LIBCANARD_SUCCESS Successfully transmitted a single frame.
+ * 	@retval LIBCANARD_ERR_TX_QUEUE_FULL Hardware TX queue is full.
+ * 	@retval LIBCANARD_ERR Generic error.
  */
 int8_t tx_once(void);
 
 
 
-/** @brief Receives one frame from the hardware rx queue
- * 		and processes it through libcanard.
+/** @brief Function to receive a single frame from the CAN hardware.
  *
- * 	@note Will possibly call should_accept callback. Only call
- * 		this function when you have time.
+ * 	@description Handles single reception from internal CAN hardware.
+ * 			Will call both libcanard callbacks if a full transfer is received.
  *
- * 	@return Not sure what this should return.
+ * 	@retval LIBCANARD_SUCCESS Frame successfully received.
+ * 	@retval LIBCANARD_NO_QUEUE No RX queue to pull from.
+ * 	@retval LIBCANARD_ERR Generic error.
  */
 int8_t rx_once(void);
 
