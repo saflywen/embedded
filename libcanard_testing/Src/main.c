@@ -106,6 +106,7 @@ void on_reception(CanardInstance* ins,
 	length = sprintf((char*)tx_buf, "Data length: %d\n\r", data_len);
 	HAL_UART_Transmit(&huart1, tx_buf, length, 100);
 
+	// Sort out different message types.
 	if (data_type_id == UAVCAN_PROTOCOL_NODESTATUS_ID) {
 		uavcan_protocol_NodeStatus msg;
 
@@ -154,6 +155,11 @@ void on_reception(CanardInstance* ins,
 }
 
 
+/** @brief Function to set up physical CAN filters.
+ *
+ * 	@remark Only change this if you are resource constrained
+ * 			and really want to limit the messages you receive.
+ */
 int16_t setup_hardware_can_filters(void) {
 	const CanardSTM32AcceptanceFilterConfiguration conf[1] = {
 			{ .id = 0, .mask = 0 }
@@ -303,6 +309,7 @@ static void MX_GPIO_Init(void)
 void TIM_Init(void) {
 	__HAL_RCC_TIM2_CLK_ENABLE();
 
+	// Enable interrupt vector
 	HAL_NVIC_SetPriority(TIM2_IRQn, 0, 1);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
@@ -310,6 +317,7 @@ void TIM_Init(void) {
 	TIM_MasterConfigTypeDef master;
 	TIM_ClockConfigTypeDef clock;
 
+	// Initialise base instance.
 	htim2.Instance = TIM2;
 	htim2.Init.Prescaler = 8000;
 	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -318,6 +326,9 @@ void TIM_Init(void) {
 	htim2.Init.Period = 1000;
 	HAL_TIM_Base_Init(&htim2);
 
+	// These next two config functions aren't *strictly* necessary.
+	// This configuration is the reset value.
+	// However, it is nice to know that on every reset this will work.
 	clock.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
 	HAL_TIM_ConfigClockSource(&htim2, &clock);
 
@@ -371,6 +382,7 @@ void UART_Init(void) {
 void TIM2_IRQHandler(void) {
 	__disable_irq();
 
+	// Clear interrupt flag in order to  actually use as a timer.
 	__HAL_TIM_CLEAR_IT(&htim2, TIM_FLAG_UPDATE);
 
 	static uavcan_protocol_NodeStatus status = {
