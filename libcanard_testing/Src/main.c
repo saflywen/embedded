@@ -188,6 +188,7 @@ int main(void)
   libcanard_init( on_reception,
 				  should_accept,
 				  NULL,
+				  42,
 				  8000000,
 				  250000);
 
@@ -199,8 +200,6 @@ int main(void)
 
 	  tx_once();
 	  rx_once();
-	   volatile uint8_t thingie = TIM2->CNT;
-
   }
 }
 

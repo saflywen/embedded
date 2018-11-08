@@ -18,6 +18,7 @@
 #define LIBCANARD_ERR_NO_MEM				-2
 #define LIBCANARD_ERR_INVALID_SETTINGS		-3
 #define LIBCANARD_ERR_TX_QUEUE_FULL			-4
+#define LIBCANARD_ERR_INVALID_ID			-5
 
 
 /* ------------ Filtering Mask Definitions ------ */
@@ -62,6 +63,7 @@ CanardInstance m_canard_instance;
 int16_t libcanard_init(	CanardOnTransferReception on_reception,
 						CanardShouldAcceptTransfer should_accept,
 						void* user_reference,
+						uint8_t node_id,
 						const uint32_t clock_rate,
 						const uint32_t bitrate);
 
